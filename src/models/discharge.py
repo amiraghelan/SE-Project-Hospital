@@ -11,4 +11,9 @@ class Discharge:
         self.discharge_date = datetime.now()
 
     def __str__(self):
-        return f"Treatment with id {self.treatment_id} occur at {self.discharge_date} with status {self.discharge_status}!"
+        return (
+            f"Discharge ID: {self.id}\n"
+            f"Treatment ID: {self.treatment_id}\n"
+            f"Discharge Status: {self.discharge_status.value}\n"
+            f"Discharge Date: {self.discharge_date.strftime('%Y-%m-%d %H:%M:%S')}"
+        )

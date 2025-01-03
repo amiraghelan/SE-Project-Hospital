@@ -13,7 +13,13 @@ class Doctor:
         self.expertise = expertise
 
     def __str__(self):
-        return f"Doctor: {self.full_name}\nExpertise: {self.expertise}"
+        return (
+            f"Doctor ID: {self.id}\n"
+            f"Full Name: {self.full_name}\n"
+            f"Gender: {self.gender.name}\n"
+            f"Birth Date: {self.birth_date.strftime('%Y-%m-%d')}\n"
+            f"Expertise: {self.expertise.value}"
+        )
 
 
 class Patient:
