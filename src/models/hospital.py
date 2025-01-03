@@ -6,7 +6,7 @@ from datetime import datetime
 from src.models.person import Doctor, Patient
 from src.models.snapshot import Snapshot
 from src.models.discharge import Discharge
-from src.models.treatment import Treatment
+from src.models.treatment import Treatment, RandomTreatmentType
 from src.models.enums import DischargeStatus, Gender, EntityStatus, Expertise, TreatmentType
 
 
@@ -22,19 +22,29 @@ class Hospital:
     def __init__(self, name: str, max_capacity: int) -> None:
         self.name = name
         self.max_capacity = max_capacity
-        self.doctors = self.__initialize_doctors()
+        self.doctors: list[Doctor] = self.__initialize_doctors()
         self.creation_date = datetime.now()
-        self.patients_in_queue = dict()
-        self.patients_in_progress = dict()
-        self.treatments = dict()
+        self.patients_in_queue: dict[int, Patient] = dict()
+        self.patients_in_progress: dict[int, Patient] = dict()
+        self.treatments: dict[int, Treatment] = dict()
+        # should we add an empty snaphsot for initialization
         self.snapshots = dict()
-        self.discharges = dict()
+        self.discharges: dict[int, Discharge] = dict()
         self.__used_capacity = 0
 
     def register(self, url) -> None:
-        response = requests.post(url,
-                                 json={"type": Hospital.__name__, "max_capacity": self.max_capacity,
-                                       "eav": {"name": self.name, "doctor": self.doctors, "creation_date": self.creation_date}})
+        response = requests.post(
+            url,
+            json={
+                "type": Hospital.__name__,
+                "max_capacity": self.max_capacity,
+                "eav": {
+                    "name": self.name,
+                    "doctor": self.doctors,
+                    "creation_date": self.creation_date
+                }
+            }
+        )
 
         body = response.json()
         self.entity_id = body.entity_id
@@ -45,7 +55,7 @@ class Hospital:
         body = response.json()
 
         snapshot = Snapshot.from_dict(body)
-
+        # what if there was no response?
         self.snapshots[snapshot.id] = snapshot
         self.__last_snapshot = snapshot
 
@@ -55,7 +65,7 @@ class Hospital:
     def discharge_patient(self, url: str, patient_id: int):
         return requests.post(url, json={"entity_id": self.entity_id, "person_id": patient_id}).json()
 
-    def __initialize_doctors(self) -> None:
+    def __initialize_doctors(self) -> list[Doctor]:
         doctors_data = [
             ("Sophia Williams", Gender.FEMALE, datetime(1985, 6, 15), Expertise.ORTHOPEDICS),
             ("John Smith", Gender.MALE, datetime(1990, 4, 22), Expertise.TRAUMATOLOGY),
@@ -72,6 +82,7 @@ class Hospital:
         return [Doctor(full_name, gender, birth_date, expertise) for full_name, gender, birth_date, expertise in doctors_data]
 
     def __admit_process(self) -> list:
+        # i think we should move the rate to config files.
         admission_rate = random.uniform(0.6, 1)
         accepted_persons = []
 
