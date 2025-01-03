@@ -63,7 +63,7 @@ class Hospital:
         return requests.post(url, json={"entity_id": self.entity_id, "persons_id": self.__admit_process()}).json()
 
     def discharge_patient(self, url: str, patient_id: int):
-        return requests.post(url, json={"entity_id": self.entity_id, "person_id": patient_id}).json()
+        return requests.post(url, json={"entity_id": self.entity_id, "persons_id": [patient_id]}).json()
 
     def __initialize_doctors(self) -> list[Doctor]:
         doctors_data = [
