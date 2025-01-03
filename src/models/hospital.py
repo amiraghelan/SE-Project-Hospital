@@ -27,8 +27,7 @@ class Hospital:
         self.patients_in_queue: dict[int, Patient] = dict()
         self.patients_in_progress: dict[int, Patient] = dict()
         self.treatments: dict[int, Treatment] = dict()
-        # should we add an empty snaphsot for initialization
-        self.snapshots = dict()
+        self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot()
         self.discharges: dict[int, Discharge] = dict()
         self.__used_capacity = 0
 
@@ -64,6 +63,10 @@ class Hospital:
 
     def discharge_patient(self, url: str, patient_id: int):
         return requests.post(url, json={"entity_id": self.entity_id, "persons_id": [patient_id]}).json()
+
+    def __initialize_initial_snapshot(self, entity_id: int) -> dict[int, Snapshot]:
+        snapshot = Snapshot(entity_id, [], False)
+        return {snapshot.id: snapshot}
 
     def __initialize_doctors(self) -> list[Doctor]:
         doctors_data = [
