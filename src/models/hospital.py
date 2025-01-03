@@ -35,7 +35,7 @@ class Hospital:
         response = requests.post(
             url,
             json={
-                "type": Hospital.__name__,
+                "entity_type": Hospital.__name__,
                 "max_capacity": self.max_capacity,
                 "eav": {
                     "name": self.name,
@@ -46,8 +46,8 @@ class Hospital:
         )
 
         body = response.json()
-        self.entity_id = body.entity_id
-        self.time_rate = body.time_rate
+        self.entity_id = body['entity_id']
+        self.time_rate = body['time_rate']
 
     def take_snapshot(self, url) -> None:
         response = requests.get(url, params={"entity_id": self.entity_id})
