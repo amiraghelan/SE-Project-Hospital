@@ -1,31 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from src.utils.random_id_generator import UniqueIDGenerator
-
-
-class Gender(Enum):
-    MALE = 'male',
-    FEMALE = 'female'
-
-
-class EntityStatus(Enum):
-    INQUEUE = 'in queue'
-    INPROGRESS = 'in progress'
-    SERVICEDONE = 'service done'
-
-
-class PatientStatus(Enum):
-    ALIVE = 'alive',
-    INJURED = 'injured'
-    DEAD = 'dead'
-
-
-class Expertise(Enum):
-    ORTHOPEDICS = "Orthopedics"  # Fracture and dislocation treatments
-    TRAUMATOLOGY = "Traumatology"  # Wound care and burn treatment
-    PHYSICAL_THERAPY = "Physical Therapy"  # Physiotherapy
-    EMERGENCY_MEDICINE = "Emergency Medicine"  # Acute injuries, wound care, and dislocations
-    PLASTIC_SURGERY = "Plastic Surgery"  # Burn treatment and reconstructive surgery
+from src.models.enums import Gender, Expertise, EntityStatus, PatientStatus
 
 
 class Doctor:

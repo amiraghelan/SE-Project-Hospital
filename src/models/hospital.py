@@ -1,11 +1,12 @@
-from datetime import *
-from snapshot import *
-from discharge import *
-from person import *
-from treatment import *
 import random
 import requests
 import threading
+from person import *
+from datetime import *
+from snapshot import *
+from discharge import *
+from treatment import *
+from src.models.enums import *
 
 
 class Hospital:

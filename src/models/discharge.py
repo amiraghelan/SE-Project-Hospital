@@ -1,10 +1,7 @@
-from enum import Enum
 from datetime import datetime
 from src.utils.random_id_generator import UniqueIDGenerator
+from models.enums import DischargeStatus
 
-class DischargeStatus(Enum):
-    HEALTHY = 'healthy',
-    DEAD = 'dead'
 
 class Discharge:
     def __init__(self, treatment_id: int, discharge_status: DischargeStatus) -> None:

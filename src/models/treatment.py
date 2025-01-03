@@ -1,15 +1,7 @@
-from enum import Enum
 import random
 from datetime import datetime, timedelta
 from src.utils.random_id_generator import UniqueIDGenerator
-
-
-class TreatmentType(Enum):
-    FRACTURE_TREATMENT = "Fracture Treatment"
-    WOUND_CARE = "Wound Care"
-    PHYSIOTHERAPY = "Physiotherapy"
-    BURN_TREATMENT = "Burn Treatment"
-    DISLOCATION_TREATMENT = "Dislocation Treatment"
+from src.models.enums import TreatmentType
 
 
 class RandomTreatmentType:
