@@ -4,7 +4,8 @@ from discharge import *
 from person import *
 from treatment import *
 import random
-import requests  # type: ignore
+import requests
+import threading
 
 
 class Hospital:
@@ -26,9 +27,12 @@ class Hospital:
         self.treatments = dict()
         self.snapshots = dict()
         self.discharges = dict()
+        self.__used_capacity = 0
 
     def register(self, url) -> None:
-        response = requests.post(url, json={"type": Hospital.__name__, "max_capacity": self.max_capacity, "eav": dict()})
+        response = requests.post(url,
+                                 json={"type": Hospital.__name__, "max_capacity": self.max_capacity,
+                                       "eav": {"name": self.name, "doctor": self.doctors, "creation_date": self.creation_date}})
 
         body = response.json()
         self.entity_id = body.entity_id
@@ -44,40 +48,10 @@ class Hospital:
         self.__last_snapshot = snapshot
 
     def admit_patient(self, url) -> bool:
-        admission_rate = random.uniform(0.6, 1)
-        accepted_persons_id = []
+        return requests.post(url, json={"entity_id": self.entity_id, "persons_id": self.__admit_process()}).json()
 
-        for person in self.__last_snapshot.persons:
-            if random.random() < admission_rate:
-
-                # TODO add logic for fail
-                self.__start_treatment(person.id)
-
-                accepted_persons_id.append(person.id)
-                self.patients_in_progress[person.id] = Patient(
-                    person.name, person.gender, person.birth_date,
-                    person.national_code, EntityStatus.INPROGRESS, person.status
-                )
-
-            else:
-                self.patients_in_queue[person.id] = Patient(
-                    person.name, person.gender, person.birth_date,
-                    person.national_code, EntityStatus.INQUEUE, person.status
-                )
-                print(f"Patient {person.id} status is in-queue.")
-
-        response = requests.post(url, json={"entity_id": self.entity_id, "persons_id": accepted_persons_id})
-        return response.json()
-
-    def discharge_patient(self, url):
-        patients_discharge = []
-        for treatment in self.treatments.values():
-            if datetime.now() > treatment.end_date:
-                discharge = Discharge(treatment.id, DischargeStatus.HEALTHY)
-                self.discharges[discharge.id] = discharge
-                patients_discharge.append(self.patients_in_progress.pop(treatment.patient_id))
-
-        requests.post(url, json={"entity_id": self.entity_id, "persons_id": patients_discharge})
+    def discharge_patient(self, url: str, patient_id: int):
+        return requests.post(url, json={"entity_id": self.entity_id, "person_id": patient_id}).json()
 
     def __initialize_doctors(self) -> None:
         doctors_data = [
@@ -95,22 +69,84 @@ class Hospital:
 
         return [Doctor(full_name, gender, birth_date, expertise) for full_name, gender, birth_date, expertise in doctors_data]
 
-    def __assign_doctor(self, treatment_type: TreatmentType) -> Doctor:
+    def __admit_process(self) -> list:
+        admission_rate = random.uniform(0.6, 1)
+        accepted_persons = []
+
+        all_patients = self.__last_snapshot.persons + list(self.patients_in_queue.values())
+
+        for person in all_patients:
+            if self.__used_capacity >= self.max_capacity:
+                break
+            if random.random() < admission_rate:
+                is_started = self.__start_treatment(person.id)
+                if is_started:
+                    self.patients_in_progress[person.id] = Patient(
+                        person.name, person.gender, person.birth_date,
+                        person.national_code, EntityStatus.INPROGRESS, person.status
+                    )
+                    accepted_persons.append(person.id)
+                    print(f"Patient {person.id} status is in-progress.")
+                else:
+                    self.patients_in_queue[person.id] = Patient(
+                        person.name, person.gender, person.birth_date,
+                        person.national_code, EntityStatus.INQUEUE, person.status
+                    )
+                    print(f"Patient {person.id} status is in-queue.")
+            else:
+                self.patients_in_queue[person.id] = Patient(
+                    person.name, person.gender, person.birth_date,
+                    person.national_code, EntityStatus.INQUEUE, person.status
+                )
+                print(f"Patient {person.id} status is in-queue.")
+
+        return accepted_persons
+
+    def __assign_doctor(self, treatment_type: TreatmentType) -> Doctor | None:
         required_expertise = self.__expertise_mapping[treatment_type]
 
         available_doctors = [doctor for doctor in self.doctors if doctor.expertise == required_expertise]
 
         if not available_doctors:
-            # TODO logic for not available docotor
-            raise Exception(f"No available doctor with expertise in {required_expertise.value}")
+            print(f"No available doctor with expertise in {required_expertise.value}")
+            return
 
         return random.choice(available_doctors)
 
-    def __start_treatment(self, patient_id: int) -> None:
+    def __start_treatment(self, patient_id: int) -> bool:
         treatment_type = RandomTreatmentType.generate()
-
         doctor = self.__assign_doctor(treatment_type)
+
+        if not doctor:
+            print(f"Treatment failed for patient {patient_id} because no doctor with expertise in "
+                  f"{self.__expertise_mapping[treatment_type].value} is available.")
+            return False
 
         treatment = Treatment(patient_id, doctor.id, treatment_type)
 
         self.treatments[treatment.id] = treatment
+        self.__used_capacity += 1
+        print(f"Started treatment: {treatment}")
+
+        duration_seconds = treatment.duration.total_seconds()
+        threading.Timer(duration_seconds, self.__discharge_patient, args=(treatment.id,)).start()
+
+        return True
+
+    def __discharge_patient(self, treatment_id: int) -> None:
+        treatment = self.treatments.get(treatment_id)
+        if not treatment:
+            print(f"Treatment ID {treatment_id} not found.")
+            return
+
+        discharge = Discharge(treatment_id, DischargeStatus.HEALTHY)
+        self.discharges[discharge.id] = discharge
+
+        patient = self.patients_in_progress.pop(treatment.patient_id, None)
+        if patient:
+            print(f"Discharged patient {patient.id}: {discharge}")
+            # TODO
+            self.__used_capacity -= 1
+            self.discharge_patient("", patient.id)
+        else:
+            print(f"Patient for treatment {treatment_id} not found.")
