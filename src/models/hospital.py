@@ -55,6 +55,7 @@ class Hospital:
 
         snapshot = Snapshot.from_dict(body)
         # what if there was no response?
+        # so, we can give default snapshot or empty one or something like these
         self.snapshots[snapshot.id] = snapshot
         self.__last_snapshot = snapshot
 
