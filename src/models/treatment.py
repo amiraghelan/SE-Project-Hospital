@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, timedelta
+
 from src.utils.random_id_generator import UniqueIDGenerator
 from src.models.enums import TreatmentType
 

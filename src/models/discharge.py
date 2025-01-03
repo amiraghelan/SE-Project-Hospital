@@ -1,6 +1,7 @@
 from datetime import datetime
+
 from src.utils.random_id_generator import UniqueIDGenerator
-from models.enums import DischargeStatus
+from src.models.enums import DischargeStatus
 
 
 class Discharge:

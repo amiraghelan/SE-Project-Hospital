@@ -1,12 +1,13 @@
 import random
 import requests
 import threading
-from person import *
-from datetime import *
-from snapshot import *
-from discharge import *
-from treatment import *
-from src.models.enums import *
+from datetime import datetime
+
+from src.models.person import Doctor, Patient
+from src.models.snapshot import Snapshot
+from src.models.discharge import Discharge
+from src.models.treatment import Treatment
+from src.models.enums import DischargeStatus, Gender, EntityStatus, Expertise, TreatmentType
 
 
 class Hospital:

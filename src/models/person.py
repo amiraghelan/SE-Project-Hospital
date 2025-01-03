@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from src.utils.random_id_generator import UniqueIDGenerator
 from src.models.enums import Gender, Expertise, EntityStatus, PatientStatus
 
