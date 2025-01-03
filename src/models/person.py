@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from src.utils.random_id_generator import UniqueIDGenerator
 from src.models.enums import Gender, Expertise, EntityStatus, PatientStatus
 
@@ -19,6 +20,14 @@ class Doctor:
             f"Birth Date: {self.birth_date.strftime('%Y-%m-%d')}\n"
             f"Expertise: {self.expertise.value}"
         )
+    def to_json(self):
+        return {
+            'id':self.id,
+            'full_name':self.full_name,
+            'gender':self.gender.value,
+            'birth_date':self.birth_date.strftime('%Y-%m-%d'),
+            'experties':self.expertise.value 
+        }
 
 
 class Patient:

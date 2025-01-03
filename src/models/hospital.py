@@ -27,27 +27,34 @@ class Hospital:
         self.patients_in_queue: dict[int, Patient] = dict()
         self.patients_in_progress: dict[int, Patient] = dict()
         self.treatments: dict[int, Treatment] = dict()
-        self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot()
+        self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot(-1)
         self.discharges: dict[int, Discharge] = dict()
         self.__used_capacity = 0
 
-    def register(self, url) -> None:
-        response = requests.post(
-            url,
-            json={
-                "entity_type": Hospital.__name__,
-                "max_capacity": self.max_capacity,
-                "eav": {
-                    "name": self.name,
-                    "doctor": self.doctors,
-                    "creation_date": self.creation_date
+    def register(self, url) -> bool:
+        try:
+            response = requests.post(
+                url,
+                json={
+                    "entity_type": Hospital.__name__,
+                    "max_capacity": self.max_capacity,
+                    "eav": {
+                        "name": self.name,
+                        "doctor": [doc.to_json() for doc in  self.doctors],
+                        "creation_date": self.creation_date.strftime('%Y-%m-%d')
+                    }
                 }
-            }
-        )
+            )
+            print(response.text)
 
-        body = response.json()
-        self.entity_id = body['entity_id']
-        self.time_rate = body['time_rate']
+            body = response.json()
+            self.entity_id = body['entity_id']
+            self.time_rate = body['time_rate']
+            
+            return response.status_code == 200
+        except Exception:
+            return False
+            
 
     def take_snapshot(self, url) -> None:
         response = requests.get(url, params={"entity_id": self.entity_id})
@@ -60,13 +67,17 @@ class Hospital:
         self.__last_snapshot = snapshot
 
     def admit_patient(self, url) -> bool:
-        return requests.post(url, json={"entity_id": self.entity_id, "persons_id": self.__admit_process()}).json()
+        persons = self.__admit_process()
+        if persons and len(persons) != 0:
+            return requests.post(url, json={"entity_id": self.entity_id, "persons_id": self.__admit_process()}).json()
+        else:
+            return False
 
     def discharge_patient(self, url: str, patient_id: int):
         return requests.post(url, json={"entity_id": self.entity_id, "persons_id": [patient_id]}).json()
 
-    def __initialize_initial_snapshot(self, entity_id: int) -> dict[int, Snapshot]:
-        snapshot = Snapshot(entity_id, [], False)
+    def __initialize_initial_snapshot(self, id: int) -> dict[int, Snapshot]:
+        snapshot = Snapshot(id, [], False)
         return {snapshot.id: snapshot}
 
     def __initialize_doctors(self) -> list[Doctor]:
