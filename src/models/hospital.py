@@ -28,8 +28,10 @@ class Hospital:
         self.patients_in_progress: dict[int, Patient] = dict()
         self.treatments: dict[int, Treatment] = dict()
         self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot(-1)
+        self.__last_snapshot = self.snapshots[-1]
         self.discharges: dict[int, Discharge] = dict()
         self.__used_capacity = 0
+        self.entity_id = -1
 
     def register(self, url) -> bool:
         try:
@@ -100,8 +102,10 @@ class Hospital:
         # i think we should move the rate to config files.
         admission_rate = random.uniform(0.6, 1)
         accepted_persons = []
-
-        all_patients = self.__last_snapshot.persons + list(self.patients_in_queue.values())
+        if len(self.__last_snapshot.persons):
+            all_patients = self.__last_snapshot.persons + list(self.patients_in_queue.values())
+        else:
+            all_patients = list(self.patients_in_queue.values())
 
         for person in all_patients:
             if self.__used_capacity >= self.max_capacity:
@@ -110,21 +114,21 @@ class Hospital:
                 is_started = self.__start_treatment(person.id)
                 if is_started:
                     self.patients_in_progress[person.id] = Patient(
-                        person.name, person.gender, person.birth_date,
-                        person.national_code, EntityStatus.INPROGRESS, person.status
+                        person.full_name, person.gender, person.birth_date,
+                        person.national_code, EntityStatus.INPROGRESS, person.patient_status
                     )
                     accepted_persons.append(person.id)
                     print(f"Patient {person.id} status is in-progress.")
                 else:
                     self.patients_in_queue[person.id] = Patient(
-                        person.name, person.gender, person.birth_date,
-                        person.national_code, EntityStatus.INQUEUE, person.status
+                        person.full_name, person.gender, person.birth_date,
+                        person.national_code, EntityStatus.INQUEUE, person.patient_status
                     )
                     print(f"Patient {person.id} status is in-queue.")
             else:
                 self.patients_in_queue[person.id] = Patient(
-                    person.name, person.gender, person.birth_date,
-                    person.national_code, EntityStatus.INQUEUE, person.status
+                    person.full_name, person.gender, person.birth_date,
+                    person.national_code, EntityStatus.INQUEUE, person.patient_status
                 )
                 print(f"Patient {person.id} status is in-queue.")
 
@@ -175,6 +179,6 @@ class Hospital:
             print(f"Discharged patient {patient.id}: {discharge}")
             # TODO
             self.__used_capacity -= 1
-            self.discharge_patient("", patient.id)
+            self.discharge_patient("http://localhost:8000/api/service-done", patient.id)
         else:
             print(f"Patient for treatment {treatment_id} not found.")
