@@ -16,7 +16,7 @@ class Person:
 
     @classmethod
     def from_dict(cls, data):
-        gender = Gender.MALE if data['gender'].value == 'male' else Gender.FEMALE
+        gender = Gender.MALE if data['gender'] == 'male' else Gender.FEMALE
         return cls(data['id'], data['name'], gender, data['birth_date'], data['national_code'])
 
     def __str__(self) -> str:

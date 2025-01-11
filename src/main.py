@@ -3,41 +3,66 @@ import threading
 import time
 
 
-# Registration Tread
-def register_tread(url: str, hospital: Hospital):
-    while True:
-        flag = hospital.register(url+"/register")
-        if flag:
-            print('Resgisterd with Success')
-            break
-        else:
-            print('Registration Faild, Trying again in 15 seconds')
-            time.sleep(15)
+def register(api_url: str, hospital: Hospital):
+    registered = hospital.register(api_url + "/register")
+    print(f"In {__name__}.{register.__name__}: register called")
+    print(100 * "-")
+
+    if registered:
+        print(f'In {__name__}.{register.__name__}: Registered with Success!')
+        print(100 * "-")
+        return True
+
+    print(f'In {__name__}.{register.__name__}: Registration Failed!')
+    print(100 * "-")
+    return False
 
 
-def update_snapshot_tread(url, hospital: Hospital):
+def take_snapshot(url, hospital: Hospital):
     while True:
-        if (hospital.__entity_id):
+        if hospital.get_entity_id():
             try:
-                hospital.take_snapshot(url + f"/snapshot/{hospital.__entity_id}")
-            except Exception:
-                pass
+                hospital.take_snapshot(url + f"/snapshot")
+                print(f"In {__name__}.{take_snapshot.__name__}: take_snapshot called")
+                print(100 * "-")
+            except Exception as error:
+                print(f"In {__name__}.{take_snapshot.__name__}:\n" +
+                      f"Error: {error}")
+                print(100 * "-")
         time.sleep(10)
 
 
-url = 'http://localhost:8000/api'
-h = Hospital('test', 15)
+def admit_patient(admit_url: str, discharge_url: str, hospital: Hospital):
+    while True:
+        if hospital.get_entity_id():
+            try:
+                hospital.admit_patient(admit_url, discharge_url)
+                print(f"In {__name__}.{admit_patient.__name__}: admit_patient called")
+                print(100 * "-")
+            except Exception as error:
+                print(f"In {__name__}.{admit_patient.__name__}:\n" +
+                      f"Error: {error}")
+                print(100 * "-")
+        time.sleep(10)
 
-# Starting the Register Tread
-registerTread = threading.Thread(target=register_tread, args=(url, h))
-registerTread.start()
 
-# Starting the Register Tread
-snapShotTread = threading.Thread(target=update_snapshot_tread, args=(url, h))
-snapShotTread.start()
+if __name__ == "__main__":
+    url = 'http://localhost:8000/api'
+    hospital = Hospital('hospital', 15)
 
-# Main thread can continue doing other things
+    while not register(url, hospital):
+        print(f"In main.{__name__}: Trying again in 5 seconds")
+        print(100 * "-")
+        time.sleep(5)
+        register(url, hospital)
 
-while True:
-    h.admit_patient(url + "accept-person")
-    time.sleep(5)
+    try:
+        # Starting the Snapshot Thread
+        threading.Thread(target=take_snapshot, args=(url, hospital)).start()
+        threading.Thread(target=admit_patient, args=(url + f"/accept-person", url+f"/service-done", hospital)).start()
+
+    except KeyboardInterrupt:
+        print(f"In {__name__}: Program interrupted by user. Shutting down...")
+    except Exception as error:
+        print(f"In {__name__}:\n" +
+              f"Unexpected error: {error}")

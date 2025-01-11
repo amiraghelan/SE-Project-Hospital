@@ -20,7 +20,6 @@ class Hospital(BaseEntity):
         self.treatments: dict[int, Treatment] = dict()
         self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot(-1)
         self.discharges: dict[int, Discharge] = dict()
-        self.patients_in_queue: dict[int, Patient] = dict()
         self.patients_in_progress: dict[int, Patient] = dict()
         self.__entity_id = -1
         self.__time_rate = 100
@@ -47,11 +46,13 @@ class Hospital(BaseEntity):
                 }
             }
         )
-        print(response.text)
 
         body = response.json()
         self.__entity_id = body['entity_id']
         self.__time_rate = body['time_rate']
+
+        print(f"In {__name__}.{self.register.__name__}: entity_id:{body['entity_id']}")
+        print(100 * "-")
 
         return response.status_code == 200
 
@@ -60,15 +61,34 @@ class Hospital(BaseEntity):
         body = response.json()
 
         snapshot = Snapshot.from_dict(body)
+
+        print(f"In {__name__}.{self.take_snapshot.__name__}: ")
+        print(f"snapshot id: {snapshot.id}\n"
+              f"persons in snapshot:")
+        if not snapshot.persons or len(snapshot.persons) == 0:
+            print("empty!!")
+        else:
+            for person in snapshot.persons:
+                print(person.id, end=" ")
+        print()
+        print(100 * "-")
+
         # what if there was no response?
         # so, we can give default snapshot or empty one or something like these
         self.snapshots[snapshot.id] = snapshot
         self.__last_snapshot = snapshot
 
-    def admit_patient(self, url) -> bool:
-        persons = self.__admit_process()
+    def admit_patient(self, admit_url, discharge_url) -> bool:
+        persons = self.__admit_process(discharge_url)
         if persons and len(persons) != 0:
-            return requests.post(url, json={"entity_id": self.__entity_id, "persons_id": self.__admit_process()}).json()
+            print(f"In {__name__}.{self.admit_patient.__name__}:\n" +
+                  f"persons admitted:")
+            for person in persons:
+                print(person, end=" ")
+            print()
+            print(100 * "-")
+
+            return requests.post(admit_url, json={"entity_id": self.__entity_id, "persons_id": persons}).json()
         else:
             return False
 
@@ -95,17 +115,15 @@ class Hospital(BaseEntity):
 
         return [Doctor(name, gender, birth_date, expertise) for name, gender, birth_date, expertise in doctors_data]
 
-    def __admit_process(self) -> list:
+    def __admit_process(self, discharge_url) -> list:
         # i think we should move the rate to config files.
-        admission_rate = random.uniform(0.6, 1)
+        admission_rate = random.uniform(0.7, 1)
         patient_inline = []
 
-        persons = self.__last_snapshot.persons + list(self.patients_in_queue.values())
-
-        for person in persons:
+        for person in self.__last_snapshot.persons:
             if self.__used_capacity >= self.max_capacity:
                 break
-            if random.random() < admission_rate and self.__start_treatment(person.id):
+            if random.random() < admission_rate and self.__start_treatment(person.id, discharge_url):
                 self.__mark_patient_in_progress(person)
                 patient_inline.append(person.id)
             else:
@@ -114,18 +132,18 @@ class Hospital(BaseEntity):
         return patient_inline
 
     def __mark_patient_in_queue(self, person: Person) -> None:
-        self.patients_in_queue[person.id] = Patient(
-            person.name, person.gender, person.birth_date,
-            person.national_code, EntityStatus.INQUEUE, PatientStatus.INJURED
-        )
+        print(f"In {__name__}.{self.__mark_patient_in_queue.__name__}:")
         print(f"Patient {person.id} status is in-queue.")
+        print(100 * "-")
 
     def __mark_patient_in_progress(self, person: Person) -> None:
         self.patients_in_progress[person.id] = Patient(
             person.name, person.gender, person.birth_date,
             person.national_code, EntityStatus.INPROGRESS, PatientStatus.INJURED
         )
+        print(f"In {__name__}.{self.__mark_patient_in_progress.__name__}:")
         print(f"Patient {person.id} status is in-progress.")
+        print(100 * "-")
 
     def __assign_doctor(self, treatment_type: TreatmentType) -> Doctor | None:
         required_expertise = self.__expertise_mapping[treatment_type]
@@ -133,35 +151,44 @@ class Hospital(BaseEntity):
         available_doctors = [doctor for doctor in self.doctors if doctor.expertise == required_expertise]
 
         if not available_doctors:
+            print(f"In {__name__}.{self.__assign_doctor.__name__}:")
             print(f"No available doctor with expertise in {required_expertise.value}")
+            print(100 * "-")
             return
 
         return random.choice(available_doctors)
 
-    def __start_treatment(self, patient_id: int) -> bool:
+    def __start_treatment(self, patient_id: int, discharge_url: str) -> bool:
         treatment_type = RandomTreatmentType.generate()
         doctor = self.__assign_doctor(treatment_type)
 
         if not doctor:
+            print(f"In {__name__}.{self.__start_treatment.__name__}:")
             print(f"Treatment failed for patient {patient_id} because no doctor with expertise in "
                   f"{self.__expertise_mapping[treatment_type].value} is available.")
+            print(100 * "-")
             return False
 
         treatment = Treatment(patient_id, doctor.id, treatment_type)
 
         self.treatments[treatment.id] = treatment
         self.__used_capacity += 1
-        print(f"Started treatment: {treatment} with duration {treatment.duration}")
+
+        print(f"In {__name__}.{self.__start_treatment.__name__}:")
+        print(f"Started treatment: {treatment.id}, patient id: {treatment.patient_id} with duration {treatment.duration}")
+        print(100 * "-")
 
         duration = treatment.duration.total_seconds()
-        threading.Timer(duration, self.__discharge_patient, args=(treatment.id,)).start()
+        threading.Timer(duration, self.__discharge_patient, args=(treatment.id, discharge_url,)).start()
 
         return True
 
-    def __discharge_patient(self, treatment_id: int) -> None:
+    def __discharge_patient(self, treatment_id: int, discharge_url: str) -> None:
         treatment = self.treatments.get(treatment_id)
         if not treatment:
+            print(f"In {__name__}.{self.__discharge_patient.__name__}:")
             print(f"Treatment ID {treatment_id} not found.")
+            print(100 * "-")
             return
 
         discharge = Discharge(treatment_id, DischargeStatus.HEALTHY)
@@ -169,8 +196,16 @@ class Hospital(BaseEntity):
 
         patient = self.patients_in_progress.pop(treatment.patient_id, None)
         if patient:
+            print(f"In {__name__}.{self.__discharge_patient.__name__}:")
             print(f"Discharged patient {patient.id}:\n{discharge}")
+            print(100 * "-")
+
             self.__used_capacity -= 1
-            self.discharge_patient("http://localhost:8000/api/service-done", patient.id)
+            self.discharge_patient(discharge_url, patient.id)
         else:
+            print(f"In {__name__}.{self.__discharge_patient.__name__}:")
             print(f"Patient with treatment id {treatment_id} not found.")
+            print(100 * "-")
+
+    def get_entity_id(self) -> int:
+        return self.__entity_id
