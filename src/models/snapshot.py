@@ -1,9 +1,10 @@
-from src.utils.random_id_generator import UniqueIDGenerator
 from datetime import datetime
+
+from src.models.person import Person
 
 
 class Snapshot:
-    def __init__(self, id:int, persons: list, earthquake_status: bool) -> None:
+    def __init__(self, id: int, persons: list[Person], earthquake_status: bool) -> None:
         self.id = id
         self.persons = persons
         self.earthquake_status = earthquake_status
@@ -11,7 +12,8 @@ class Snapshot:
 
     @classmethod
     def from_dict(cls, data):
-        return cls( data['id'], data['persons'], data['earthquake_status'])
+        persons = [Person.from_dict(person) for person in data['persons']]
+        return cls(data['id'], persons, data['earthquake_status'])
 
     def __str__(self):
         return (

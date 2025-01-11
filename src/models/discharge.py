@@ -1,15 +1,13 @@
-from datetime import datetime
-
-from src.utils.random_id_generator import UniqueIDGenerator
+from src.models.base_model import BaseEntity
 from src.models.enums import DischargeStatus
 
 
-class Discharge:
+class Discharge(BaseEntity):
     def __init__(self, treatment_id: int, discharge_status: DischargeStatus) -> None:
-        self.id = UniqueIDGenerator.generate_id()
+        super().__init__()
         self.treatment_id = treatment_id
         self.discharge_status = discharge_status
-        self.discharge_date = datetime.now()
+        self.discharge_date = self.creation_date
 
     def __str__(self):
         return (

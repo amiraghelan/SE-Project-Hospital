@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from src.utils.random_id_generator import UniqueIDGenerator
+from src.models.base_model import BaseEntity
 from src.models.enums import TreatmentType
 
 
@@ -15,9 +15,9 @@ class RandomTreatmentType:
         return random.choice(tuple(RandomTreatmentType._available_treatment_types))
 
 
-class Treatment:
+class Treatment(BaseEntity):
     def __init__(self, patient_id: int, doctor_id: int, type: TreatmentType) -> None:
-        self.id = UniqueIDGenerator.generate_id()
+        super().__init__()
         self.patient_id = patient_id
         self.doctor_id = doctor_id
         self.treatment_type = type

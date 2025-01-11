@@ -3,63 +3,60 @@ import requests
 import threading
 from datetime import datetime
 
-from src.models.person import Doctor, Patient
+from src.models.person import Doctor, Patient, Person
 from src.models.snapshot import Snapshot
 from src.models.discharge import Discharge
+from src.models.base_model import BaseEntity
 from src.models.treatment import Treatment, RandomTreatmentType
-from src.models.enums import DischargeStatus, Gender, EntityStatus, Expertise, TreatmentType
+from src.models.enums import DischargeStatus, Gender, EntityStatus, PatientStatus,  Expertise, TreatmentType
 
 
-class Hospital:
-    __expertise_mapping = {
-        TreatmentType.FRACTURE_TREATMENT: Expertise.ORTHOPEDICS,
-        TreatmentType.WOUND_CARE: Expertise.TRAUMATOLOGY,
-        TreatmentType.PHYSIOTHERAPY: Expertise.PHYSICAL_THERAPY,
-        TreatmentType.BURN_TREATMENT: Expertise.PLASTIC_SURGERY,
-        TreatmentType.DISLOCATION_TREATMENT: Expertise.ORTHOPEDICS,
-    }
-
+class Hospital(BaseEntity):
     def __init__(self, name: str, max_capacity: int) -> None:
+        super().__init__()
         self.name = name
         self.max_capacity = max_capacity
         self.doctors: list[Doctor] = self.__initialize_doctors()
-        self.creation_date = datetime.now()
-        self.patients_in_queue: dict[int, Patient] = dict()
-        self.patients_in_progress: dict[int, Patient] = dict()
         self.treatments: dict[int, Treatment] = dict()
         self.snapshots: dict[int, Snapshot] = self.__initialize_initial_snapshot(-1)
-        self.__last_snapshot = self.snapshots[-1]
         self.discharges: dict[int, Discharge] = dict()
+        self.patients_in_queue: dict[int, Patient] = dict()
+        self.patients_in_progress: dict[int, Patient] = dict()
+        self.__entity_id = -1
+        self.__time_rate = 100
         self.__used_capacity = 0
-        self.entity_id = -1
+        self.__last_snapshot = self.snapshots[-1]
+        self.__expertise_mapping = {
+            TreatmentType.FRACTURE_TREATMENT: Expertise.ORTHOPEDICS,
+            TreatmentType.WOUND_CARE: Expertise.TRAUMATOLOGY,
+            TreatmentType.PHYSIOTHERAPY: Expertise.PHYSICAL_THERAPY,
+            TreatmentType.BURN_TREATMENT: Expertise.PLASTIC_SURGERY,
+            TreatmentType.DISLOCATION_TREATMENT: Expertise.ORTHOPEDICS,
+        }
 
     def register(self, url) -> bool:
-        try:
-            response = requests.post(
-                url,
-                json={
-                    "entity_type": Hospital.__name__,
-                    "max_capacity": self.max_capacity,
-                    "eav": {
-                        "name": self.name,
-                        "doctor": [doc.to_json() for doc in  self.doctors],
-                        "creation_date": self.creation_date.strftime('%Y-%m-%d')
-                    }
+        response = requests.post(
+            url,
+            json={
+                "entity_type": Hospital.__name__,
+                "max_capacity": self.max_capacity,
+                "eav": {
+                    "name": self.name,
+                    "doctor": [doctor.to_dict() for doctor in self.doctors],
+                    "creation_date": self.creation_date.strftime('%Y-%m-%d')
                 }
-            )
-            print(response.text)
+            }
+        )
+        print(response.text)
 
-            body = response.json()
-            self.entity_id = body['entity_id']
-            self.time_rate = body['time_rate']
-            
-            return response.status_code == 200
-        except Exception:
-            return False
-            
+        body = response.json()
+        self.__entity_id = body['entity_id']
+        self.__time_rate = body['time_rate']
+
+        return response.status_code == 200
 
     def take_snapshot(self, url) -> None:
-        response = requests.get(url, params={"entity_id": self.entity_id})
+        response = requests.get(url, params={"entity_id": self.__entity_id})
         body = response.json()
 
         snapshot = Snapshot.from_dict(body)
@@ -71,12 +68,12 @@ class Hospital:
     def admit_patient(self, url) -> bool:
         persons = self.__admit_process()
         if persons and len(persons) != 0:
-            return requests.post(url, json={"entity_id": self.entity_id, "persons_id": self.__admit_process()}).json()
+            return requests.post(url, json={"entity_id": self.__entity_id, "persons_id": self.__admit_process()}).json()
         else:
             return False
 
     def discharge_patient(self, url: str, patient_id: int):
-        return requests.post(url, json={"entity_id": self.entity_id, "persons_id": [patient_id]}).json()
+        return requests.post(url, json={"entity_id": self.__entity_id, "persons_id": [patient_id]}).json()
 
     def __initialize_initial_snapshot(self, id: int) -> dict[int, Snapshot]:
         snapshot = Snapshot(id, [], False)
@@ -96,43 +93,39 @@ class Hospital:
             ("Alex Jones", Gender.MALE, datetime(1984, 8, 25), Expertise.TRAUMATOLOGY),
         ]
 
-        return [Doctor(full_name, gender, birth_date, expertise) for full_name, gender, birth_date, expertise in doctors_data]
+        return [Doctor(name, gender, birth_date, expertise) for name, gender, birth_date, expertise in doctors_data]
 
     def __admit_process(self) -> list:
         # i think we should move the rate to config files.
         admission_rate = random.uniform(0.6, 1)
-        accepted_persons = []
-        if len(self.__last_snapshot.persons):
-            all_patients = self.__last_snapshot.persons + list(self.patients_in_queue.values())
-        else:
-            all_patients = list(self.patients_in_queue.values())
+        patient_inline = []
 
-        for person in all_patients:
+        persons = self.__last_snapshot.persons + list(self.patients_in_queue.values())
+
+        for person in persons:
             if self.__used_capacity >= self.max_capacity:
                 break
-            if random.random() < admission_rate:
-                is_started = self.__start_treatment(person.id)
-                if is_started:
-                    self.patients_in_progress[person.id] = Patient(
-                        person.full_name, person.gender, person.birth_date,
-                        person.national_code, EntityStatus.INPROGRESS, person.patient_status
-                    )
-                    accepted_persons.append(person.id)
-                    print(f"Patient {person.id} status is in-progress.")
-                else:
-                    self.patients_in_queue[person.id] = Patient(
-                        person.full_name, person.gender, person.birth_date,
-                        person.national_code, EntityStatus.INQUEUE, person.patient_status
-                    )
-                    print(f"Patient {person.id} status is in-queue.")
+            if random.random() < admission_rate and self.__start_treatment(person.id):
+                self.__mark_patient_in_progress(person)
+                patient_inline.append(person.id)
             else:
-                self.patients_in_queue[person.id] = Patient(
-                    person.full_name, person.gender, person.birth_date,
-                    person.national_code, EntityStatus.INQUEUE, person.patient_status
-                )
-                print(f"Patient {person.id} status is in-queue.")
+                self.__mark_patient_in_queue(person)
 
-        return accepted_persons
+        return patient_inline
+
+    def __mark_patient_in_queue(self, person: Person) -> None:
+        self.patients_in_queue[person.id] = Patient(
+            person.name, person.gender, person.birth_date,
+            person.national_code, EntityStatus.INQUEUE, PatientStatus.INJURED
+        )
+        print(f"Patient {person.id} status is in-queue.")
+
+    def __mark_patient_in_progress(self, person: Person) -> None:
+        self.patients_in_progress[person.id] = Patient(
+            person.name, person.gender, person.birth_date,
+            person.national_code, EntityStatus.INPROGRESS, PatientStatus.INJURED
+        )
+        print(f"Patient {person.id} status is in-progress.")
 
     def __assign_doctor(self, treatment_type: TreatmentType) -> Doctor | None:
         required_expertise = self.__expertise_mapping[treatment_type]
@@ -158,10 +151,10 @@ class Hospital:
 
         self.treatments[treatment.id] = treatment
         self.__used_capacity += 1
-        print(f"Started treatment: {treatment}")
+        print(f"Started treatment: {treatment} with duration {treatment.duration}")
 
-        duration_seconds = treatment.duration.total_seconds()
-        threading.Timer(duration_seconds, self.__discharge_patient, args=(treatment.id,)).start()
+        duration = treatment.duration.total_seconds()
+        threading.Timer(duration, self.__discharge_patient, args=(treatment.id,)).start()
 
         return True
 
@@ -176,9 +169,8 @@ class Hospital:
 
         patient = self.patients_in_progress.pop(treatment.patient_id, None)
         if patient:
-            print(f"Discharged patient {patient.id}: {discharge}")
-            # TODO
+            print(f"Discharged patient {patient.id}:\n{discharge}")
             self.__used_capacity -= 1
             self.discharge_patient("http://localhost:8000/api/service-done", patient.id)
         else:
-            print(f"Patient for treatment {treatment_id} not found.")
+            print(f"Patient with treatment id {treatment_id} not found.")

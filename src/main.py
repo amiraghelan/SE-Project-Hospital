@@ -3,8 +3,8 @@ import threading
 import time
 
 
-## Registration Tread
-def register_tread(url: str, hospital:Hospital):
+# Registration Tread
+def register_tread(url: str, hospital: Hospital):
     while True:
         flag = hospital.register(url+"/register")
         if flag:
@@ -13,16 +13,18 @@ def register_tread(url: str, hospital:Hospital):
         else:
             print('Registration Faild, Trying again in 15 seconds')
             time.sleep(15)
-            
-def update_snapshot_tread(url, hospital:Hospital):
+
+
+def update_snapshot_tread(url, hospital: Hospital):
     while True:
-        if(hospital.entity_id):
+        if (hospital.__entity_id):
             try:
-                hospital.take_snapshot(url + f"/snapshot/{hospital.entity_id}")
+                hospital.take_snapshot(url + f"/snapshot/{hospital.__entity_id}")
             except Exception:
                 pass
         time.sleep(10)
-            
+
+
 url = 'http://localhost:8000/api'
 h = Hospital('test', 15)
 
