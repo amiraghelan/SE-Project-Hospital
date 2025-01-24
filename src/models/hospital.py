@@ -1,9 +1,5 @@
-
-from math import log
 import random
 from time import sleep
-
-
 import requests
 import threading
 from datetime import datetime
@@ -20,8 +16,6 @@ from src.models.enums import (
     TreatmentType,
 )
 from src.utils.logger import get_logger
-
-
 logger = get_logger(__name__)
 
 
@@ -112,6 +106,7 @@ class Hospital(BaseEntity):
 
     # =======================================================================
 
+    #==handling patients=====================================================
     def admit_patient(self):
         persons = self.last_snapshot.persons
         temp_accepted_persons = []
@@ -147,8 +142,6 @@ class Hospital(BaseEntity):
         except Exception as error:
             logger.error(f"error while addmiting - {error}")
 
-   
-
     def _addmit_procces(self, persons: list[Person]):
         for person in persons:
             if self.used_capacity >= self.max_capacity:
@@ -164,11 +157,14 @@ class Hospital(BaseEntity):
 
                 duration = treatment.duration.total_seconds()
 
+                #TODO implement the person death call
                 threading.Timer(
-                    1, self.dischage, args=(treatment.id,)
+                    duration, self.dischage, args=(treatment.id,)
                 ).start()
 
     def dischage(self, treatment_id: int, dischargeStatus:DischargeStatus = DischargeStatus.HEALTHY, count:int=1):
+        # TODO implement the maximum try with count parameter
+        # TODO decide whether to call person_death or service done based on dischargeStatus
         treatment = self.treatments.get(treatment_id)
         if treatment:
             person_id = treatment.patient_id
@@ -191,7 +187,9 @@ class Hospital(BaseEntity):
                     logger.error("error in discharge")
                     logger.error(error)
 
+    #=========================================================================
     
+    #==utils==================================================================
     def __initialize_doctors(self) -> list[Doctor]:
         doctors_data = [
             (
@@ -266,3 +264,4 @@ class Hospital(BaseEntity):
 
         return random.choice(available_doctors)
 
+    #=========================================================================
