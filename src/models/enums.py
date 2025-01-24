@@ -11,13 +11,13 @@ class Gender(Enum):
     FEMALE = 'female'
 
 
-class EntityStatus(Enum):
-    INQUEUE = 'in queue'
-    INPROGRESS = 'in progress'
-    SERVICEDONE = 'service done'
+class ServiceStatus(Enum):
+    INQUEUE = 'in-queue'
+    INPROGRESS = 'in-progress'
+    SERVICEDONE = 'service-done'
 
 
-class PatientStatus(Enum):
+class PersonStatus(Enum):
     ALIVE = 'alive',
     INJURED = 'injured'
     DEAD = 'dead'
