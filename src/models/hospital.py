@@ -80,6 +80,7 @@ class Hospital(BaseEntity):
 
     def register(self):
         register_thread = threading.Thread(target=self._register_request)
+        register_thread.setDaemon()
         register_thread.start()
 
     # =======================================================================
@@ -157,18 +158,21 @@ class Hospital(BaseEntity):
 
                 duration = treatment.duration.total_seconds()
 
-                #TODO implement the person death call
-                threading.Timer(
-                    duration, self.dischage, args=(treatment.id,)
-                ).start()
+                timer = threading.Timer(
+                    duration, self.discharge, args=(treatment.id, DischargeStatus.DEAD if treatment.is_dead else DischargeStatus.HEALTHY)
+                )
+                timer.setDaemon(True)
+                timer.start()
 
-    def dischage(self, treatment_id: int, dischargeStatus:DischargeStatus = DischargeStatus.HEALTHY, count:int=1):
+    def discharge(self, treatment_id: int, discharge_status:DischargeStatus = DischargeStatus.HEALTHY, count:int=1):
         # TODO implement the maximum try with count parameter
-        # TODO decide whether to call person_death or service done based on dischargeStatus
         treatment = self.treatments.get(treatment_id)
-        if treatment:
+        if not treatment:
+            return
+        
+        try:
             person_id = treatment.patient_id
-            try:
+            if discharge_status == DischargeStatus.HEALTHY:
                 response = requests.post(
                     self.url + "/service-done",
                     json={"entity_id": self.id, "persons_id": [person_id]},
@@ -183,9 +187,26 @@ class Hospital(BaseEntity):
                 if person_id in accepted:
                     discharge = Discharge(treatment.id, DischargeStatus.HEALTHY)
                     self.discharges[discharge.id] = discharge
-            except Exception as error:
-                    logger.error("error in discharge")
-                    logger.error(error)
+        
+            else:
+                response = requests.post(
+                    self.url + "/person-death",
+                    json={"entity_id": self.id, "persons_id": [person_id]},
+                )
+                body = response.json()
+                accepted = body["accepted"]
+                if accepted:
+                    logger.info(f"person death for {accepted} was accepted")
+                else:
+                    logger.info(f"person death for {body["accepted"]} was accepted")
+
+                if person_id in accepted:
+                    discharge = Discharge(treatment.id, DischargeStatus.DEAD)
+                    self.discharges[discharge.id] = discharge
+                    
+        except Exception as error:
+                logger.error("error in discharge")
+                logger.error(error)
 
     #=========================================================================
     
@@ -257,9 +278,7 @@ class Hospital(BaseEntity):
         ]
 
         if not available_doctors:
-            print(f"In {__name__}.{self.__assign_doctor.__name__}:")
-            print(f"No available doctor with expertise in {required_expertise.value}")
-            print(100 * "-")
+            logger.info(f"No available doctor with expertise in {required_expertise.value}")
             return
 
         return random.choice(available_doctors)
