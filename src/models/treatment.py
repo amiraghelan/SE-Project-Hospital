@@ -27,14 +27,14 @@ class Treatment(BaseEntity):
 
     def estimate_duration(self) -> timedelta:
         treatment_durations = {
-            TreatmentType.FRACTURE_TREATMENT: timedelta(days=random.randint(6, 8)),
-            TreatmentType.WOUND_CARE: timedelta(days=random.randint(1, 3)),
-            TreatmentType.PHYSIOTHERAPY: timedelta(days=random.randint(2, 4)),
-            TreatmentType.BURN_TREATMENT: timedelta(days=random.randint(1, 4)),
-            TreatmentType.DISLOCATION_TREATMENT: timedelta(days=random.randint(3, 5)),
+            TreatmentType.FRACTURE_TREATMENT: timedelta(seconds=random.randint(6, 8)),
+            TreatmentType.WOUND_CARE: timedelta(seconds=random.randint(1, 3)),
+            TreatmentType.PHYSIOTHERAPY: timedelta(seconds=random.randint(2, 4)),
+            TreatmentType.BURN_TREATMENT: timedelta(seconds=random.randint(1, 4)),
+            TreatmentType.DISLOCATION_TREATMENT: timedelta(seconds=random.randint(3, 5)),
         }
 
-        return treatment_durations.get(self.treatment_type, timedelta(days=1))
+        return treatment_durations.get(self.treatment_type, timedelta(seconds=1))
 
     def __str__(self) -> str:
         return (
@@ -44,6 +44,5 @@ class Treatment(BaseEntity):
             f"Treatment Type: {self.treatment_type.value}\n"
             f"Start Date: {self.start_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"End Date: {self.end_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"Duration: {self.duration.days} days, {self.duration.seconds // 3600} hours, "
-            f"{(self.duration.seconds % 3600) // 60} minutes"
+            f"Duration: {self.duration.seconds} seconds, "
         )
