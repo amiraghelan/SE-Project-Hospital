@@ -80,7 +80,7 @@ class Hospital(BaseEntity):
 
     def register(self):
         register_thread = threading.Thread(target=self._register_request)
-        register_thread.setDaemon()
+        register_thread.setDaemon(True)
         register_thread.start()
 
     # =======================================================================
@@ -97,9 +97,9 @@ class Hospital(BaseEntity):
             if response.status_code != 200:
                 logger.error(f"faild to load snapshot - statuscode: {response.status_code} - message: {body["message"]}")
             else:
-                snapshot = Snapshot.from_dict(body)            
+                snapshot = Snapshot.from_dict(body)
                 self.snapshots[snapshot.id] = snapshot
-                self.last_snapshot = snapshot    
+                self.last_snapshot = snapshot
                 logger.info("snapshot was updated")
         except Exception as error:
             logger.error("faile to get last snapshot from worldmodel")
@@ -107,7 +107,7 @@ class Hospital(BaseEntity):
 
     # =======================================================================
 
-    #==handling patients=====================================================
+    # ==handling patients=====================================================
     def admit_patient(self):
         persons = self.last_snapshot.persons
         temp_accepted_persons = []
@@ -117,16 +117,16 @@ class Hospital(BaseEntity):
             temp = self.max_capacity - (self.used_capacity + len(temp_accepted_persons))
             if temp <= 0:
                 break
-            
+
             if random.random() <= 0.7:
                 temp_accepted_persons.append(person.id)
         try:
             if len(temp_accepted_persons) == 0:
                 logger.info("no patiens in snapshot to admit")
                 return
-            
+
             logger.info(f"sending accept request for: {temp_accepted_persons}")
-            
+
             response = requests.post(
                 self.url + "/accept-person",
                 json={"entity_id": self.id, "persons_id": temp_accepted_persons},
@@ -159,17 +159,18 @@ class Hospital(BaseEntity):
                 duration = treatment.duration.total_seconds()
 
                 timer = threading.Timer(
-                    duration, self.discharge, args=(treatment.id, DischargeStatus.DEAD if treatment.is_dead else DischargeStatus.HEALTHY)
+                    duration, self.discharge, args=(
+                        treatment.id, DischargeStatus.DEAD if treatment.is_dead else DischargeStatus.HEALTHY)
                 )
                 timer.setDaemon(True)
                 timer.start()
 
-    def discharge(self, treatment_id: int, discharge_status:DischargeStatus = DischargeStatus.HEALTHY, count:int=1):
+    def discharge(self, treatment_id: int, discharge_status: DischargeStatus = DischargeStatus.HEALTHY, count: int = 1):
         # TODO implement the maximum try with count parameter
         treatment = self.treatments.get(treatment_id)
         if not treatment:
             return
-        
+
         try:
             person_id = treatment.patient_id
             if discharge_status == DischargeStatus.HEALTHY:
@@ -187,7 +188,7 @@ class Hospital(BaseEntity):
                 if person_id in accepted:
                     discharge = Discharge(treatment.id, DischargeStatus.HEALTHY)
                     self.discharges[discharge.id] = discharge
-        
+
             else:
                 response = requests.post(
                     self.url + "/person-death",
@@ -203,14 +204,14 @@ class Hospital(BaseEntity):
                 if person_id in accepted:
                     discharge = Discharge(treatment.id, DischargeStatus.DEAD)
                     self.discharges[discharge.id] = discharge
-                    
-        except Exception as error:
-                logger.error("error in discharge")
-                logger.error(error)
 
-    #=========================================================================
-    
-    #==utils==================================================================
+        except Exception as error:
+            logger.error("error in discharge")
+            logger.error(error)
+
+    # =========================================================================
+
+    # ==utils==================================================================
     def __initialize_doctors(self) -> list[Doctor]:
         doctors_data = [
             (
@@ -283,4 +284,4 @@ class Hospital(BaseEntity):
 
         return random.choice(available_doctors)
 
-    #=========================================================================
+    # =========================================================================
