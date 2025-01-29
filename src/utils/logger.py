@@ -2,10 +2,12 @@
 logging handling module to create custom and particular loggers.
 """
 
+import os
 import logging
+import datetime
 from typing import Literal
 from colorlog.formatter import ColoredFormatter
-import datetime
+from configparser import ConfigParser
 
 LogLevelType = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] | None
 
@@ -34,7 +36,7 @@ def get_logger(
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # # set logger handler and formating
+    # set logger handler and formatting
     console_handler = logging.StreamHandler()
     formatter = ColorfulFormatter(
         fmt="{log_color}{levelname} : {asctime} - {light_yellow}{name}{reset} : {message}{reset}",
@@ -49,14 +51,21 @@ def get_logger(
     )
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-    # TODO read LOGS path from CONFIG
-    log_file_name = (
-        f"LOGS/app-log-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    )
-    fileHandler = logging.FileHandler(log_file_name)
-    fileHandler.setFormatter(
+
+    # Read path from CONFIG
+    config = ConfigParser()
+    config.read('config.ini')
+    log_dir = config.get('logging', 'log_dir', fallback='LOGS')
+
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    log_file_name = os.path.join(log_dir, f"app-log-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+
+    file_handler = logging.FileHandler(log_file_name)
+    file_handler.setFormatter(
         logging.Formatter(fmt="%(levelname)s : %(asctime)s - %(name)s - %(message)s")
     )
-    logger.addHandler(fileHandler)
+    logger.addHandler(file_handler)
 
     return logger
