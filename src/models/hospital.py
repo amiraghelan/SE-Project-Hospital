@@ -16,6 +16,7 @@ from src.models.enums import (
     TreatmentType,
 )
 from src.utils.logger import get_logger
+import src.config as config
 logger = get_logger(__name__)
 
 
@@ -31,6 +32,7 @@ class Hospital(BaseEntity):
         self.max_capacity = max_capacity
         self.used_capacity = 0
         self.time_rate = 1
+        self.world_model_creation_date = datetime.now()
 
         self.doctors: list[Doctor] = self.__initialize_doctors()
         self.__expertise_mapping = {
@@ -58,7 +60,7 @@ class Hospital(BaseEntity):
                 response = requests.post(
                     url,
                     json={
-                        "entity_type": Hospital.__name__,
+                        "entity_type": "hospital",
                         "max_capacity": self.max_capacity,
                         "eav": {
                             "name": self.name,
@@ -70,6 +72,7 @@ class Hospital(BaseEntity):
                 body = response.json()
                 self.id = body["entity_id"]
                 self.time_rate = body["time_rate"]
+                self.world_model_creation_date = body["start_date"]
                 logger.info(
                     f"registered with success - entity_id: {self.id} - time_rate: {self.time_rate}"
                 )
@@ -80,7 +83,7 @@ class Hospital(BaseEntity):
 
     def register(self):
         register_thread = threading.Thread(target=self._register_request)
-        register_thread.setDaemon()
+        register_thread.daemon = True
         register_thread.start()
 
     # =======================================================================
@@ -118,7 +121,7 @@ class Hospital(BaseEntity):
             if temp <= 0:
                 break
             
-            if random.random() <= 0.7:
+            if random.random() <= config.ACCEPTENCE_RATE:
                 temp_accepted_persons.append(person.id)
         try:
             if len(temp_accepted_persons) == 0:
@@ -150,13 +153,13 @@ class Hospital(BaseEntity):
             treatment_type = RandomTreatmentType.generate()
             doctor = self.__assign_doctor(treatment_type)
             if doctor:
-                treatment = Treatment(person.id, doctor.id, treatment_type)
+                treatment = Treatment(person.id, doctor.id, treatment_type, self.time_rate)
                 self.treatments[treatment.id] = treatment
                 self.servicing_patients_id.append(person.id)
                 self.patients_in_progress[person.id] = person
                 self.used_capacity = len(self.servicing_patients_id)
 
-                duration = treatment.duration.total_seconds()
+                duration = treatment.duration
 
                 timer = threading.Timer(
                     duration, self.discharge, args=(treatment.id, DischargeStatus.DEAD if treatment.is_dead else DischargeStatus.HEALTHY)
